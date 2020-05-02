@@ -395,6 +395,7 @@ Private PropDownPicture As IPictureDisp
 Private PropUseMaskColor As Boolean
 Private PropMaskColor As OLE_COLOR
 Private PropDrawMode As CmdDrawModeConstants
+Private PropManualCreate As Boolean
 
 Private Sub IObjectSafety_GetInterfaceSafetyOptions(ByRef riid As OLEGuids.OLECLSID, ByRef pdwSupportedOptions As Long, ByRef pdwEnabledOptions As Long)
 Const INTERFACESAFE_FOR_UNTRUSTED_CALLER As Long = &H1, INTERFACESAFE_FOR_UNTRUSTED_DATA As Long = &H2
@@ -589,9 +590,13 @@ Set PropDownPicture = .ReadProperty("DownPicture", Nothing)
 PropUseMaskColor = .ReadProperty("UseMaskColor", False)
 PropMaskColor = .ReadProperty("MaskColor", &HC0C0C0)
 PropDrawMode = .ReadProperty("DrawMode", CmdDrawModeNormal)
+PropManualCreate = .ReadProperty("ManualCreate", False)
 End With
-Call CreateCommandButton
-If Not PropImageListName = "(None)" Then TimerImageList.Enabled = True
+
+If Not PropManualCreate Or CommandButtonDesignMode Then
+    Call CreateCommandButton
+End If
+'If Not PropImageListName = "(None)" Then TimerImageList.Enabled = True
 End Sub
 
 Private Sub UserControl_WriteProperties(PropBag As PropertyBag)
@@ -629,6 +634,7 @@ With PropBag
 .WriteProperty "UseMaskColor", PropUseMaskColor, False
 .WriteProperty "MaskColor", PropMaskColor, &HC0C0C0
 .WriteProperty "DrawMode", PropDrawMode, CmdDrawModeNormal
+.WriteProperty "ManualCreate", PropManualCreate, False
 End With
 End Sub
 
@@ -1026,6 +1032,14 @@ Select Case Value
         Err.Raise 380
 End Select
 UserControl.PropertyChanged "MousePointer"
+End Property
+
+Public Property Get ManualCreate() As Boolean
+ManualCreate = PropManualCreate
+End Property
+
+Public Property Let ManualCreate(ByVal Value As Boolean)
+PropManualCreate = Value
 End Property
 
 Public Property Get MouseIcon() As IPictureDisp
@@ -1659,39 +1673,46 @@ If CommandButtonHandle <> 0 Then Call ReCreateCommandButton
 UserControl.PropertyChanged "DrawMode"
 End Property
 
-Private Sub CreateCommandButton()
+Public Sub CreateCommandButton()
 If CommandButtonHandle <> 0 Then Exit Sub
+
 Dim dwStyle As Long, dwExStyle As Long
-dwStyle = WS_CHILD Or WS_VISIBLE Or BS_PUSHBUTTON Or BS_TEXT Or BS_NOTIFY
-If PropDisplayAsDefault = True Then dwStyle = dwStyle Or BS_DEFPUSHBUTTON
-If Me.Appearance = CCAppearanceFlat Then dwStyle = dwStyle Or BS_FLAT
-If PropRightToLeft = True Then dwExStyle = dwExStyle Or WS_EX_RTLREADING
-Select Case PropAlignment
-    Case vbLeftJustify
-        dwStyle = dwStyle Or BS_LEFT
-    Case vbCenter
-        dwStyle = dwStyle Or BS_CENTER
-    Case vbRightJustify
-        dwStyle = dwStyle Or BS_RIGHT
-End Select
-Select Case PropVerticalAlignment
-    Case CCVerticalAlignmentTop
-        dwStyle = dwStyle Or BS_TOP
-    Case CCVerticalAlignmentCenter
-        dwStyle = dwStyle Or BS_VCENTER
-    Case CCVerticalAlignmentBottom
-        dwStyle = dwStyle Or BS_BOTTOM
-End Select
-If PropWordWrap = True Then dwStyle = dwStyle Or BS_MULTILINE
-If PropSplitButton = True Then If ComCtlsSupportLevel() >= 2 Then dwStyle = dwStyle Or BS_SPLITBUTTON
-If PropDrawMode <> CmdDrawModeNormal Then PropStyle = vbButtonStandard
+
 If PropStyle = vbButtonGraphical Then dwStyle = dwStyle Or BS_OWNERDRAW
 If PropDrawMode = CmdDrawModeOwnerDraw Then dwStyle = dwStyle Or BS_OWNERDRAW
+
 If (dwStyle And BS_OWNERDRAW) = BS_OWNERDRAW Then
     ' According to MSDN:
     ' The BS_OWNERDRAW style cannot be combined with any other button style.
     dwStyle = WS_CHILD Or WS_VISIBLE Or BS_OWNERDRAW
+Else
+    dwStyle = WS_CHILD Or WS_VISIBLE Or BS_PUSHBUTTON Or BS_TEXT Or BS_NOTIFY
+    If PropDisplayAsDefault = True Then dwStyle = dwStyle Or BS_DEFPUSHBUTTON
+    If Me.Appearance = CCAppearanceFlat Then dwStyle = dwStyle Or BS_FLAT
+    If PropRightToLeft = True Then dwExStyle = dwExStyle Or WS_EX_RTLREADING
+    Select Case PropAlignment
+        Case vbLeftJustify
+            dwStyle = dwStyle Or BS_LEFT
+        Case vbCenter
+            dwStyle = dwStyle Or BS_CENTER
+        Case vbRightJustify
+            dwStyle = dwStyle Or BS_RIGHT
+    End Select
+    Select Case PropVerticalAlignment
+        Case CCVerticalAlignmentTop
+            dwStyle = dwStyle Or BS_TOP
+        Case CCVerticalAlignmentCenter
+            dwStyle = dwStyle Or BS_VCENTER
+        Case CCVerticalAlignmentBottom
+            dwStyle = dwStyle Or BS_BOTTOM
+    End Select
+    If PropWordWrap = True Then dwStyle = dwStyle Or BS_MULTILINE
+    If PropSplitButton = True Then If ComCtlsSupportLevel() >= 2 Then dwStyle = dwStyle Or BS_SPLITBUTTON
 End If
+
+
+If PropDrawMode <> CmdDrawModeNormal Then PropStyle = vbButtonStandard
+
 CommandButtonHandle = CreateWindowEx(dwExStyle, StrPtr("Button"), 0, dwStyle, 0, 0, UserControl.ScaleWidth, UserControl.ScaleHeight, UserControl.hWnd, 0, App.hInstance, ByVal 0&)
 If CommandButtonHandle <> 0 Then
     Call ComCtlsShowAllUIStates(CommandButtonHandle)
@@ -1723,8 +1744,10 @@ Else
 End If
 End Sub
 
-Private Sub ReCreateCommandButton()
+Public Sub ReCreateCommandButton()
 If CommandButtonDesignMode = False Then
+    If ManualCreate And CommandButtonHandle = 0& Then Exit Sub
+
     Dim Locked As Boolean
     Locked = CBool(LockWindowUpdate(UserControl.hWnd) <> 0)
     Call DestroyCommandButton

@@ -342,6 +342,7 @@ Private PropDownPicture As IPictureDisp
 Private PropUseMaskColor As Boolean
 Private PropMaskColor As OLE_COLOR
 Private PropDrawMode As OptDrawModeConstants
+Private PropManualCreate As Boolean
 
 Private Sub IObjectSafety_GetInterfaceSafetyOptions(ByRef riid As OLEGuids.OLECLSID, ByRef pdwSupportedOptions As Long, ByRef pdwEnabledOptions As Long)
 Const INTERFACESAFE_FOR_UNTRUSTED_CALLER As Long = &H1, INTERFACESAFE_FOR_UNTRUSTED_DATA As Long = &H2
@@ -486,8 +487,11 @@ Set PropDownPicture = .ReadProperty("DownPicture", Nothing)
 PropUseMaskColor = .ReadProperty("UseMaskColor", False)
 PropMaskColor = .ReadProperty("MaskColor", &HC0C0C0)
 PropDrawMode = .ReadProperty("DrawMode", OptDrawModeNormal)
+PropManualCreate = .ReadProperty("ManualCreate", False)
 End With
-Call CreateOptionButton
+If Not PropManualCreate Or OptionButtonDesignMode Then
+    Call CreateOptionButton
+End If
 If Not PropImageListName = "(None)" Then TimerImageList.Enabled = True
 End Sub
 
@@ -523,6 +527,7 @@ With PropBag
 .WriteProperty "UseMaskColor", PropUseMaskColor, False
 .WriteProperty "MaskColor", PropMaskColor, &HC0C0C0
 .WriteProperty "DrawMode", PropDrawMode, OptDrawModeNormal
+.WriteProperty "ManualCreate", PropManualCreate, False
 End With
 End Sub
 
@@ -1428,6 +1433,14 @@ Me.Refresh
 UserControl.PropertyChanged "MaskColor"
 End Property
 
+Public Property Get ManualCreate() As Boolean
+ManualCreate = PropManualCreate
+End Property
+
+Public Property Let ManualCreate(ByVal Value As Boolean)
+PropManualCreate = Value
+End Property
+
 Public Property Get DrawMode() As OptDrawModeConstants
 Attribute DrawMode.VB_Description = "Returns/sets a value indicating whether your code or the operating system will handle drawing of the elements."
 DrawMode = PropDrawMode
@@ -1444,7 +1457,7 @@ If OptionButtonHandle <> 0 Then Call ReCreateOptionButton
 UserControl.PropertyChanged "DrawMode"
 End Property
 
-Private Sub CreateOptionButton()
+Public Sub CreateOptionButton()
 If OptionButtonHandle <> 0 Then Exit Sub
 Dim dwStyle As Long, dwExStyle As Long
 dwStyle = WS_CHILD Or WS_VISIBLE Or BS_RADIOBUTTON Or BS_TEXT Or BS_NOTIFY
@@ -1498,6 +1511,8 @@ End Sub
 
 Private Sub ReCreateOptionButton()
 If OptionButtonDesignMode = False Then
+    If ManualCreate And OptionButtonHandle = 0& Then Exit Sub
+
     Dim Locked As Boolean
     Locked = CBool(LockWindowUpdate(UserControl.hWnd) <> 0)
     Call DestroyOptionButton

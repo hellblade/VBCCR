@@ -354,6 +354,7 @@ Private PropDownPicture As IPictureDisp
 Private PropUseMaskColor As Boolean
 Private PropMaskColor As OLE_COLOR
 Private PropDrawMode As ChkDrawModeConstants
+Private PropManualCreate As Boolean
 
 Private Sub IObjectSafety_GetInterfaceSafetyOptions(ByRef riid As OLEGuids.OLECLSID, ByRef pdwSupportedOptions As Long, ByRef pdwEnabledOptions As Long)
 Const INTERFACESAFE_FOR_UNTRUSTED_CALLER As Long = &H1, INTERFACESAFE_FOR_UNTRUSTED_DATA As Long = &H2
@@ -563,8 +564,11 @@ Set PropDownPicture = .ReadProperty("DownPicture", Nothing)
 PropUseMaskColor = .ReadProperty("UseMaskColor", False)
 PropMaskColor = .ReadProperty("MaskColor", &HC0C0C0)
 PropDrawMode = .ReadProperty("DrawMode", ChkDrawModeNormal)
+PropManualCreate = .ReadProperty("ManualCreate", False)
 End With
-Call CreateCheckBox
+If Not PropManualCreate Or CheckBoxDesignMode Then
+    Call CreateCheckBox
+End If
 If Not PropImageListName = "(None)" Then TimerImageList.Enabled = True
 End Sub
 
@@ -600,6 +604,7 @@ With PropBag
 .WriteProperty "UseMaskColor", PropUseMaskColor, False
 .WriteProperty "MaskColor", PropMaskColor, &HC0C0C0
 .WriteProperty "DrawMode", PropDrawMode, ChkDrawModeNormal
+.WriteProperty "ManualCreate", PropManualCreate, False
 End With
 End Sub
 
@@ -1008,6 +1013,14 @@ Public Property Get RightToLeft() As Boolean
 Attribute RightToLeft.VB_Description = "Determines text display direction and control visual appearance on a bidirectional system."
 Attribute RightToLeft.VB_UserMemId = -611
 RightToLeft = PropRightToLeft
+End Property
+
+Public Property Get ManualCreate() As Boolean
+ManualCreate = PropManualCreate
+End Property
+
+Public Property Let ManualCreate(ByVal Value As Boolean)
+PropManualCreate = Value
 End Property
 
 Public Property Let RightToLeft(ByVal Value As Boolean)
@@ -1547,7 +1560,7 @@ If CheckBoxHandle <> 0 Then Call ReCreateCheckBox
 UserControl.PropertyChanged "DrawMode"
 End Property
 
-Private Sub CreateCheckBox()
+Public Sub CreateCheckBox()
 If CheckBoxHandle <> 0 Then Exit Sub
 Dim dwStyle As Long, dwExStyle As Long
 dwStyle = WS_CHILD Or WS_VISIBLE Or BS_3STATE Or BS_TEXT Or BS_NOTIFY
@@ -1601,6 +1614,8 @@ End Sub
 
 Private Sub ReCreateCheckBox()
 If CheckBoxDesignMode = False Then
+     If ManualCreate And CheckBoxHandle = 0& Then Exit Sub
+
     Dim Locked As Boolean
     Locked = CBool(LockWindowUpdate(UserControl.hWnd) <> 0)
     Call DestroyCheckBox
