@@ -11,12 +11,6 @@ Begin VB.UserControl CommandButtonW
    ScaleMode       =   3  'Pixel
    ScaleWidth      =   160
    ToolboxBitmap   =   "CommandButtonW.ctx":0035
-   Begin VB.Timer TimerImageList 
-      Enabled         =   0   'False
-      Interval        =   1
-      Left            =   0
-      Top             =   0
-   End
 End
 Attribute VB_Name = "CommandButtonW"
 Attribute VB_GlobalNameSpace = False
@@ -570,23 +564,23 @@ PropMouseTrack = .ReadProperty("MouseTrack", False)
 PropRightToLeft = .ReadProperty("RightToLeft", False)
 PropRightToLeftMode = .ReadProperty("RightToLeftMode", CCRightToLeftModeVBAME)
 If PropRightToLeft = True Then Me.RightToLeft = True
-PropImageListName = .ReadProperty("ImageList", "(None)")
-PropImageListAlignment = .ReadProperty("ImageListAlignment", CmdImageListAlignmentLeft)
-PropImageListMargin = .ReadProperty("ImageListMargin", 0)
+'PropImageListName = .ReadProperty("ImageList", "(None)")
+'PropImageListAlignment = .ReadProperty("ImageListAlignment", CmdImageListAlignmentLeft)
+'PropImageListMargin = .ReadProperty("ImageListMargin", 0)
 PropCaption = .ReadProperty("Caption", vbNullString) ' Unicode not necessary
 PropAlignment = .ReadProperty("Alignment", vbCenter)
 PropVerticalAlignment = .ReadProperty("VerticalAlignment", CCVerticalAlignmentCenter)
-Set PropPicture = .ReadProperty("Picture", Nothing)
+'Set PropPicture = .ReadProperty("Picture", Nothing)
 PropPictureAndCaption = .ReadProperty("PictureAndCaption", False)
 PropWordWrap = .ReadProperty("WordWrap", True)
-PropTransparent = .ReadProperty("Transparent", False)
-PropSplitButton = .ReadProperty("SplitButton", False)
-PropSplitButtonAlignment = .ReadProperty("SplitButtonAlignment", CCLeftRightAlignmentRight)
-PropSplitButtonNoSplit = .ReadProperty("SplitButtonNoSplit", False)
-Set PropSplitButtonGlyph = .ReadProperty("SplitButtonGlyph", Nothing)
+'PropTransparent = .ReadProperty("Transparent", False)
+'PropSplitButton = .ReadProperty("SplitButton", False)
+'PropSplitButtonAlignment = .ReadProperty("SplitButtonAlignment", CCLeftRightAlignmentRight)
+'PropSplitButtonNoSplit = .ReadProperty("SplitButtonNoSplit", False)
+'Set PropSplitButtonGlyph = .ReadProperty("SplitButtonGlyph", Nothing)
 PropStyle = .ReadProperty("Style", vbButtonStandard)
-Set PropDisabledPicture = .ReadProperty("DisabledPicture", Nothing)
-Set PropDownPicture = .ReadProperty("DownPicture", Nothing)
+'Set PropDisabledPicture = .ReadProperty("DisabledPicture", Nothing)
+'Set PropDownPicture = .ReadProperty("DownPicture", Nothing)
 PropUseMaskColor = .ReadProperty("UseMaskColor", False)
 PropMaskColor = .ReadProperty("MaskColor", &HC0C0C0)
 PropDrawMode = .ReadProperty("DrawMode", CmdDrawModeNormal)
@@ -614,23 +608,23 @@ With PropBag
 .WriteProperty "MouseTrack", PropMouseTrack, False
 .WriteProperty "RightToLeft", PropRightToLeft, False
 .WriteProperty "RightToLeftMode", PropRightToLeftMode, CCRightToLeftModeVBAME
-.WriteProperty "ImageList", PropImageListName, "(None)"
-.WriteProperty "ImageListAlignment", PropImageListAlignment, CmdImageListAlignmentLeft
-.WriteProperty "ImageListMargin", PropImageListMargin, 0
+'.WriteProperty "ImageList", PropImageListName, "(None)"
+'.WriteProperty "ImageListAlignment", PropImageListAlignment, CmdImageListAlignmentLeft
+'.WriteProperty "ImageListMargin", PropImageListMargin, 0
 .WriteProperty "Caption", PropCaption, vbNullString ' Unicode not necessary
 .WriteProperty "Alignment", PropAlignment, vbCenter
 .WriteProperty "VerticalAlignment", PropVerticalAlignment, CCVerticalAlignmentCenter
-.WriteProperty "Picture", PropPicture, Nothing
+'.WriteProperty "Picture", PropPicture, Nothing
 .WriteProperty "PictureAndCaption", PropPictureAndCaption, False
 .WriteProperty "WordWrap", PropWordWrap, True
 .WriteProperty "Transparent", PropTransparent, False
-.WriteProperty "SplitButton", PropSplitButton, False
-.WriteProperty "SplitButtonAlignment", PropSplitButtonAlignment, CCLeftRightAlignmentRight
-.WriteProperty "SplitButtonNoSplit", PropSplitButtonNoSplit, False
-.WriteProperty "SplitButtonGlyph", PropSplitButtonGlyph, Nothing
+'.WriteProperty "SplitButton", PropSplitButton, False
+'.WriteProperty "SplitButtonAlignment", PropSplitButtonAlignment, CCLeftRightAlignmentRight
+'.WriteProperty "SplitButtonNoSplit", PropSplitButtonNoSplit, False
+'.WriteProperty "SplitButtonGlyph", PropSplitButtonGlyph, Nothing
 .WriteProperty "Style", PropStyle, vbButtonStandard
-.WriteProperty "DisabledPicture", PropDisabledPicture, Nothing
-.WriteProperty "DownPicture", PropDownPicture, Nothing
+'.WriteProperty "DisabledPicture", PropDisabledPicture, Nothing
+'.WriteProperty "DownPicture", PropDownPicture, Nothing
 .WriteProperty "UseMaskColor", PropUseMaskColor, False
 .WriteProperty "MaskColor", PropMaskColor, &HC0C0C0
 .WriteProperty "DrawMode", PropDrawMode, CmdDrawModeNormal
@@ -728,14 +722,6 @@ Call RemoveVTableHandling(Me, VTableInterfaceControl)
 Call RemoveVTableHandling(Me, VTableInterfacePerPropertyBrowsing)
 Call DestroyCommandButton
 Call ComCtlsReleaseShellMod
-End Sub
-
-Private Sub TimerImageList_Timer()
-If PropImageListInit = False Then
-    Me.ImageList = PropImageListName
-    PropImageListInit = True
-End If
-TimerImageList.Enabled = False
 End Sub
 
 Public Property Get Name() As String
@@ -963,8 +949,8 @@ If CommandButtonHandle <> 0 Then
         End If
         SetWindowLong CommandButtonHandle, GWL_STYLE, dwStyle
     End If
+    Me.Refresh
 End If
-Me.Refresh
 UserControl.PropertyChanged "Appearance"
 End Property
 
@@ -1679,7 +1665,10 @@ If CommandButtonHandle <> 0 Then Exit Sub
 Dim dwStyle As Long, dwExStyle As Long
 
 If PropStyle = vbButtonGraphical Then dwStyle = dwStyle Or BS_OWNERDRAW
-If PropDrawMode = CmdDrawModeOwnerDraw Then dwStyle = dwStyle Or BS_OWNERDRAW
+If PropDrawMode = CmdDrawModeOwnerDraw Then
+    dwStyle = dwStyle Or BS_OWNERDRAW
+    PropStyle = vbButtonStandard
+End If
 
 If (dwStyle And BS_OWNERDRAW) = BS_OWNERDRAW Then
     ' According to MSDN:
@@ -1707,32 +1696,28 @@ Else
             dwStyle = dwStyle Or BS_BOTTOM
     End Select
     If PropWordWrap = True Then dwStyle = dwStyle Or BS_MULTILINE
-    If PropSplitButton = True Then If ComCtlsSupportLevel() >= 2 Then dwStyle = dwStyle Or BS_SPLITBUTTON
+    'If PropSplitButton = True Then If ComCtlsSupportLevel() >= 2 Then dwStyle = dwStyle Or BS_SPLITBUTTON
 End If
 
-
-If PropDrawMode <> CmdDrawModeNormal Then PropStyle = vbButtonStandard
 
 CommandButtonHandle = CreateWindowEx(dwExStyle, StrPtr("Button"), 0, dwStyle, 0, 0, UserControl.ScaleWidth, UserControl.ScaleHeight, UserControl.hWnd, 0, App.hInstance, ByVal 0&)
 If CommandButtonHandle <> 0 Then
     Call ComCtlsShowAllUIStates(CommandButtonHandle)
-    If ComCtlsSupportLevel() >= 2 Then
-        Dim BTNSPLITINFO As BUTTON_SPLITINFO
-        With BTNSPLITINFO
-        .Mask = BCSIF_GLYPH
-        SendMessage CommandButtonHandle, BCM_GETSPLITINFO, 0, ByVal VarPtr(BTNSPLITINFO)
-        CommandButtonDefaultImageListGlyphHandle = .hImageListGlyph
-        End With
-    End If
+    EnableWindow CommandButtonHandle, IIf(UserControl.Enabled, 1, 0)
 End If
-Set Me.Font = PropFont
+If PropDrawMode <> CmdDrawModeOwnerDraw Then
+    Set Me.Font = PropFont
+    If Not PropPicture Is Nothing Then Set Me.Picture = PropPicture
+End If
 Me.VisualStyles = PropVisualStyles
-Me.Enabled = UserControl.Enabled
+'Me.Enabled = UserControl.Enabled
+
 Me.Caption = PropCaption
-If Not PropPicture Is Nothing Then Set Me.Picture = PropPicture
-Me.SplitButtonAlignment = PropSplitButtonAlignment
-Me.SplitButtonNoSplit = PropSplitButtonNoSplit
-If Not PropSplitButtonGlyph Is Nothing Then Set Me.SplitButtonGlyph = PropSplitButtonGlyph
+
+'Me.SplitButtonAlignment = PropSplitButtonAlignment
+'Me.SplitButtonNoSplit = PropSplitButtonNoSplit
+'If Not PropSplitButtonGlyph Is Nothing Then Set Me.SplitButtonGlyph = PropSplitButtonGlyph
+
 If CommandButtonDesignMode = False Then
     If CommandButtonHandle <> 0 Then Call ComCtlsSetSubclass(CommandButtonHandle, Me, 1)
     Call ComCtlsSetSubclass(UserControl.hWnd, Me, 2)

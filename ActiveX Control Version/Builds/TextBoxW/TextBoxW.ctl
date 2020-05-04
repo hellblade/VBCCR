@@ -1523,8 +1523,10 @@ Select Case PropCharacterCasing
     Case TxtCharacterCasingLower
         dwStyle = dwStyle Or ES_LOWERCASE
 End Select
-If PropNetAddressValidator = True And ComCtlsSupportLevel() >= 2 Then
+If PropNetAddressValidator = True Then
+If ComCtlsSupportLevel() >= 2 Then
     If InitNetworkAddressControl() <> 0 Then TextBoxHandle = CreateWindowEx(dwExStyle, StrPtr("msctls_netaddress"), 0, dwStyle, 0, 0, UserControl.ScaleWidth, UserControl.ScaleHeight, UserControl.hWnd, 0, App.hInstance, ByVal 0&)
+End If
 End If
 If TextBoxHandle = 0 Then TextBoxHandle = CreateWindowEx(dwExStyle, StrPtr("Edit"), 0, dwStyle, 0, 0, UserControl.ScaleWidth, UserControl.ScaleHeight, UserControl.hWnd, 0, App.hInstance, ByVal 0&)
 If TextBoxHandle <> 0 Then

@@ -1563,36 +1563,41 @@ End Property
 Public Sub CreateCheckBox()
 If CheckBoxHandle <> 0 Then Exit Sub
 Dim dwStyle As Long, dwExStyle As Long
-dwStyle = WS_CHILD Or WS_VISIBLE Or BS_3STATE Or BS_TEXT Or BS_NOTIFY
-If Me.Appearance = CCAppearanceFlat Then dwStyle = dwStyle Or BS_FLAT
-If PropRightToLeft = True Then dwExStyle = dwExStyle Or WS_EX_RTLREADING
-If PropAlignment = CCLeftRightAlignmentRight Then dwStyle = dwStyle Or BS_RIGHTBUTTON
-Select Case PropTextAlignment
-    Case vbLeftJustify
-        dwStyle = dwStyle Or BS_LEFT
-    Case vbCenter
-        dwStyle = dwStyle Or BS_CENTER
-    Case vbRightJustify
-        dwStyle = dwStyle Or BS_RIGHT
-End Select
-If PropPushLike = True Then dwStyle = dwStyle Or BS_PUSHLIKE
-If PropWordWrap = True Then dwStyle = dwStyle Or BS_MULTILINE
-Select Case PropVerticalAlignment
-    Case CCVerticalAlignmentTop
-        dwStyle = dwStyle Or BS_TOP
-    Case CCVerticalAlignmentCenter
-        dwStyle = dwStyle Or BS_VCENTER
-    Case CCVerticalAlignmentBottom
-        dwStyle = dwStyle Or BS_BOTTOM
-End Select
-If PropDrawMode <> ChkDrawModeNormal Then PropStyle = vbButtonStandard
+
 If PropStyle = vbButtonGraphical Then dwStyle = dwStyle Or BS_OWNERDRAW
-If PropDrawMode = ChkDrawModeOwnerDraw Then dwStyle = dwStyle Or BS_OWNERDRAW
+If PropDrawMode = ChkDrawModeOwnerDraw Then
+    dwStyle = dwStyle Or BS_OWNERDRAW
+    PropStyle = vbButtonStandard
+End If
 If (dwStyle And BS_OWNERDRAW) = BS_OWNERDRAW Then
     ' According to MSDN:
     ' The BS_OWNERDRAW style cannot be combined with any other button style.
     dwStyle = WS_CHILD Or WS_VISIBLE Or BS_OWNERDRAW
+Else
+    dwStyle = WS_CHILD Or WS_VISIBLE Or BS_3STATE Or BS_TEXT Or BS_NOTIFY
+    If Me.Appearance = CCAppearanceFlat Then dwStyle = dwStyle Or BS_FLAT
+    If PropRightToLeft = True Then dwExStyle = dwExStyle Or WS_EX_RTLREADING
+    If PropAlignment = CCLeftRightAlignmentRight Then dwStyle = dwStyle Or BS_RIGHTBUTTON
+    Select Case PropTextAlignment
+        Case vbLeftJustify
+            dwStyle = dwStyle Or BS_LEFT
+        Case vbCenter
+            dwStyle = dwStyle Or BS_CENTER
+        Case vbRightJustify
+            dwStyle = dwStyle Or BS_RIGHT
+    End Select
+    If PropPushLike = True Then dwStyle = dwStyle Or BS_PUSHLIKE
+    If PropWordWrap = True Then dwStyle = dwStyle Or BS_MULTILINE
+    Select Case PropVerticalAlignment
+        Case CCVerticalAlignmentTop
+            dwStyle = dwStyle Or BS_TOP
+        Case CCVerticalAlignmentCenter
+            dwStyle = dwStyle Or BS_VCENTER
+        Case CCVerticalAlignmentBottom
+            dwStyle = dwStyle Or BS_BOTTOM
+    End Select
 End If
+
 CheckBoxHandle = CreateWindowEx(dwExStyle, StrPtr("Button"), 0, dwStyle, 0, 0, UserControl.ScaleWidth, UserControl.ScaleHeight, UserControl.hWnd, 0, App.hInstance, ByVal 0&)
 If CheckBoxHandle <> 0 Then Call ComCtlsShowAllUIStates(CheckBoxHandle)
 Set Me.Font = PropFont
