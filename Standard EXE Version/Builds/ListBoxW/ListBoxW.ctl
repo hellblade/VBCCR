@@ -394,6 +394,8 @@ Private PropDrawMode As LstDrawModeConstants
 Private PropInsertMarkColor As OLE_COLOR
 Private PropScrollTrack As Boolean
 
+Private CheckedCount As Long
+
 Private Sub IObjectSafety_GetInterfaceSafetyOptions(ByRef riid As OLEGuids.OLECLSID, ByRef pdwSupportedOptions As Long, ByRef pdwEnabledOptions As Long)
 Const INTERFACESAFE_FOR_UNTRUSTED_CALLER As Long = &H1, INTERFACESAFE_FOR_UNTRUSTED_DATA As Long = &H2
 pdwSupportedOptions = INTERFACESAFE_FOR_UNTRUSTED_CALLER Or INTERFACESAFE_FOR_UNTRUSTED_DATA
@@ -525,6 +527,7 @@ PropDrawMode = .ReadProperty("DrawMode", LstDrawModeNormal)
 PropInsertMarkColor = .ReadProperty("InsertMarkColor", vbBlack)
 PropScrollTrack = .ReadProperty("ScrollTrack", True)
 End With
+CheckedCount = 0
 Call CreateListBox
 End Sub
 
@@ -1547,6 +1550,7 @@ If ListBoxHandle <> 0 Then
                     End If
                     SendMessage ListBoxHandle, LB_GETITEMRECT, Index, ByVal VarPtr(RC)
                     InvalidateRect ListBoxHandle, RC, 0
+                    CheckedCount = CheckedCount + IIf(Value, 1, -1)
                     RaiseEvent ItemCheck(Index)
                 End If
             End If
@@ -1732,6 +1736,12 @@ Attribute SelCount.VB_Description = "Returns the number of selected items in the
 Attribute SelCount.VB_MemberFlags = "400"
 If ListBoxHandle <> 0 Then
     Dim RetVal As Long
+    
+    If PropStyle <> LstStyleStandard Then
+        SelCount = CheckedCount
+        Exit Property
+    End If
+    
     RetVal = SendMessage(ListBoxHandle, LB_GETSELCOUNT, 0, ByVal 0&)
     If Not RetVal = LB_ERR Then
         SelCount = RetVal
@@ -2108,8 +2118,10 @@ If ListBoxHandle <> 0 Then
                         Select Case ListBoxItemChecked(Index + 1)
                             Case vbChecked
                                 ListBoxItemChecked(Index + 1) = vbUnchecked
+                                CheckedCount = CheckedCount - 1
                             Case Else
                                 ListBoxItemChecked(Index + 1) = vbChecked
+                                CheckedCount = CheckedCount + 1
                         End Select
                     ElseIf PropStyle = LstStyleOption Then
                         If ListBoxOptionIndex > -1 Then
