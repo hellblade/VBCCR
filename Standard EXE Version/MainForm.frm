@@ -8,6 +8,7 @@ Begin VB.Form MainForm
    KeyPreview      =   -1  'True
    ScaleHeight     =   8805
    ScaleWidth      =   9915
+   StartUpPosition =   3  'Windows Default
    Begin ComCtlsDemo.StatusBar StatusBar1 
       Align           =   2  'Align Bottom
       Height          =   345
@@ -251,7 +252,6 @@ Begin VB.Form MainForm
       _ExtentY        =   1058
       Value           =   5
       SelStart        =   5
-      Transparent     =   -1  'True
    End
    Begin ComCtlsDemo.MonthView MonthView1 
       Bindings        =   "MainForm.frx":1E1E
@@ -662,14 +662,6 @@ Private Sub DTPicker1_FormatString(ByVal CallbackField As String, FormattedStrin
 If CallbackField = "X" Then FormattedString = "M" & Format$(DTPicker1.Month, "00")
 End Sub
 
-Private Sub DTPicker1_GotFocus()
-DTPicker1.BackColor = vbYellow
-End Sub
-
-Private Sub DTPicker1_LostFocus()
-DTPicker1.BackColor = vbWindowBackground
-End Sub
-
 Private Sub MonthView1_GetDayBold(ByVal StartDate As Date, ByVal Count As Long, State() As Boolean)
 Dim i As Long
 For i = 1 To Count
@@ -873,7 +865,7 @@ End If
 Dim DataString As String
 DataString = VarToStr(Data.GetData(vbCFRTF))
 If DataString = ListView1.Name Or DataString = ImageCombo1.Name Or DataString = TreeView1.Name Or DataString = ListBoxW1.Name Then
-    Effect = vbDropEffectMove Or vbDropEffectCopy
+    Effect = vbDropEffectCopy Or vbDropEffectMove
 Else
     Effect = vbDropEffectNone
     Exit Sub
@@ -976,7 +968,7 @@ End If
 Dim DataString As String
 DataString = VarToStr(Data.GetData(vbCFRTF))
 If DataString = ListView1.Name Or DataString = ImageCombo1.Name Or DataString = TreeView1.Name Then
-    Effect = vbDropEffectMove Or vbDropEffectCopy
+    Effect = vbDropEffectCopy Or vbDropEffectMove
 Else
     Effect = vbDropEffectNone
     Exit Sub
@@ -1007,7 +999,7 @@ Set TabItem = TabStrip1.HitTest(X, Y)
 If TabItem Is Nothing Then
     Effect = vbDropEffectNone
 Else
-    Effect = vbDropEffectMove Or vbDropEffectCopy
+    Effect = vbDropEffectCopy Or vbDropEffectMove
     TabItem.Selected = True
 End If
 End Sub
@@ -1102,7 +1094,7 @@ If Data.GetFormat(vbCFRTF) = False Then Exit Sub
 Dim DataString As String
 DataString = VarToStr(Data.GetData(vbCFRTF))
 If DataString = TreeView1.Name Then
-    Effect = vbDropEffectMove Or vbDropEffectCopy
+    Effect = vbDropEffectCopy Or vbDropEffectMove
     Dim Node As TvwNode, MarkNode As TvwNode, After As Boolean
     Set Node = TreeView1.OLEDraggedItem
     If Not Node Is Nothing Then

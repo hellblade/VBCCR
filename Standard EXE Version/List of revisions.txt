@@ -1,7 +1,44 @@
 List of revisions:
 
-01-May-2020
-- Major internal improvement for LinkLabel/MonthView as no WM_MOUSEACTIVATE overhead necessary anymore.
+21-May-2020
+- Included the DrawMode property in the Slider control.
+
+20-May-2020
+- Major internal improvement for ImageCombo as no WM_MOUSEACTIVATE overhead necessary anymore.
+- Improvement for the WM_NCPAINT handler in the RichTextBox control.
+- Included a WM_NCPAINT handler for the HotKey control to resolve msctls_hotkey32 class bugs. (it behaves then like an edit control)
+
+18-May-2020
+- Included SortType LvwSortTypeLogical in the ListView control.
+- Bugfix related to 08-May-2020 update. (WM_PRINTCLIENT in IPAddress control)
+
+17-May-2020
+- Bugfix in the Add method of LvwColumnHeaders in the ListView control.
+- Included Text property (read-only) in the HotKey control.
+- BackColor property in the HotKey control works now also when Enabled = False.
+- Major internal improvement for HotKey as no WM_MOUSEACTIVATE overhead necessary anymore.
+
+09-May-2020
+- UserControl.Cls added in the UserControl_Paint event in the IPAddress control.
+
+08-May-2020
+- The IPAddress control supports now the WM_PRINTCLIENT message.
+  This was lost due to the rebuild from scratch as of 17-Apr-2020. (no longer use of SysIPAddress32 class)
+
+07-May-2020
+- Width property of a Panel in the StatusBar control not read-only anymore. It behaves as the MS StatusBar.
+
+06-May-2020
+- Removed the BackColor property in the DTPicker control for simplification.
+  It was anyhow not possible anymore as of Vista+ ..
+
+04-May-2020
+- Included Font/Text/TextColor property in the ProgressBar control.
+  Text placeholders: {0} = Value, {1} = Min, {2} = Max and {3} = Percent value between 0 and 100.
+
+03-May-2020
+- Major internal improvement for LinkLabel/MonthView/ComboBoxW/FontCombo as no WM_MOUSEACTIVATE overhead necessary anymore.
+- Other minor internal improvements.
 
 30-Apr-2020
 - Internal improvement in the OptionButtonW control.

@@ -1569,8 +1569,8 @@ If ListViewDragIndex > 0 Then
         Dim Text As String
         Text = Me.FListItemText(ListViewDragIndex, 0)
         Data.SetData StrToVar(Text & vbNullChar), CF_UNICODETEXT
-        Data.SetData StrToVar(Text), vbCFText
-        AllowedEffects = vbDropEffectMove Or vbDropEffectCopy
+        Data.SetData Text, vbCFText
+        AllowedEffects = vbDropEffectCopy Or vbDropEffectMove
     End If
 End If
 RaiseEvent OLEStartDrag(Data, AllowedEffects)

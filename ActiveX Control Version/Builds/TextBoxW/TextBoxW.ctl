@@ -407,16 +407,12 @@ If wMsg = WM_KEYDOWN Or wMsg = WM_KEYUP Then
     End If
     Select Case KeyCode
         Case vbKeyUp, vbKeyDown, vbKeyLeft, vbKeyRight, vbKeyPageDown, vbKeyPageUp, vbKeyHome, vbKeyEnd
-            If TextBoxHandle <> 0 Then
-                SendMessage TextBoxHandle, wMsg, wParam, ByVal lParam
-                Handled = True
-            End If
+            SendMessage hWnd, wMsg, wParam, ByVal lParam
+            Handled = True
         Case vbKeyTab, vbKeyReturn, vbKeyEscape
             If IsInputKey = True Then
-                If TextBoxHandle <> 0 Then
-                    SendMessage TextBoxHandle, wMsg, wParam, ByVal lParam
-                    Handled = True
-                End If
+                SendMessage hWnd, wMsg, wParam, ByVal lParam
+                Handled = True
             End If
     End Select
 End If
@@ -593,18 +589,24 @@ TextBoxAutoDragIsActive = False
 End Sub
 
 Private Sub UserControl_OLEDragDrop(Data As DataObject, Effect As Long, Button As Integer, Shift As Integer, X As Single, Y As Single)
+Dim Text As String
+If PropOLEDropMode = vbOLEDropAutomatic Then
+    If Data.GetFormat(CF_UNICODETEXT) = True Then
+        Text = Data.GetData(CF_UNICODETEXT) & vbNullChar
+        Text = Left$(Text, InStr(Text, vbNullChar) - 1)
+        Effect = vbDropEffectMove
+    ElseIf Data.GetFormat(vbCFText) = True Then
+        Text = Data.GetData(vbCFText)
+        Effect = vbDropEffectMove
+    Else
+        Effect = vbDropEffectNone
+    End If
+End If
 RaiseEvent OLEDragDrop(Data, Effect, Button, Shift, UserControl.ScaleX(X, vbPixels, vbContainerPosition), UserControl.ScaleY(Y, vbPixels, vbContainerPosition))
-If PropOLEDropMode = vbOLEDropAutomatic And TextBoxHandle <> 0 Then
-    If Not Effect = vbDropEffectNone Then
+If PropOLEDropMode = vbOLEDropAutomatic Then
+    If Not Effect = vbDropEffectNone And Not Text = vbNullString Then
         Me.Refresh
-        Dim Text As String
-        If Data.GetFormat(CF_UNICODETEXT) = True Then
-            Text = Data.GetData(CF_UNICODETEXT)
-            Text = Left$(Text, InStr(Text, vbNullChar) - 1)
-        ElseIf Data.GetFormat(vbCFText) = True Then
-            Text = Data.GetData(vbCFText)
-        End If
-        If Not Text = vbNullString Then
+        If TextBoxHandle <> 0 Then
             Dim CharPos As Long
             CharPos = CIntToUInt(LoWord(SendMessage(TextBoxHandle, EM_CHARFROMPOS, 0, ByVal MakeDWord(X, Y))))
             If TextBoxAutoDragIsActive = True Then
@@ -629,6 +631,9 @@ End If
 End Sub
 
 Private Sub UserControl_OLEDragOver(Data As DataObject, Effect As Long, Button As Integer, Shift As Integer, X As Single, Y As Single, State As Integer)
+If PropOLEDropMode = vbOLEDropAutomatic Then
+    If Data.GetFormat(CF_UNICODETEXT) = True Or Data.GetFormat(vbCFText) = True Then Effect = vbDropEffectMove Else Effect = vbDropEffectNone
+End If
 RaiseEvent OLEDragOver(Data, Effect, Button, Shift, UserControl.ScaleX(X, vbPixels, vbContainerPosition), UserControl.ScaleY(Y, vbPixels, vbContainerPosition), State)
 If TextBoxHandle <> 0 Then
     If State = vbOver And Not Effect = vbDropEffectNone Then
@@ -698,8 +703,8 @@ If PropOLEDragMode = vbOLEDragAutomatic Then
     Dim Text As String
     Text = Me.SelText
     Data.SetData StrToVar(Text & vbNullChar), CF_UNICODETEXT
-    Data.SetData StrToVar(Text), vbCFText
-    AllowedEffects = vbDropEffectMove
+    Data.SetData Text, vbCFText
+    AllowedEffects = vbDropEffectCopy Or vbDropEffectMove
     TextBoxAutoDragIsActive = True
 End If
 RaiseEvent OLEStartDrag(Data, AllowedEffects)

@@ -93,6 +93,7 @@ Attribute OLEStartDrag.VB_Description = "Occurs when an OLE drag/drop operation 
 Private Declare Function CreateWindowEx Lib "user32" Alias "CreateWindowExW" (ByVal dwExStyle As Long, ByVal lpClassName As Long, ByVal lpWindowName As Long, ByVal dwStyle As Long, ByVal X As Long, ByVal Y As Long, ByVal nWidth As Long, ByVal nHeight As Long, ByVal hWndParent As Long, ByVal hMenu As Long, ByVal hInstance As Long, ByRef lpParam As Any) As Long
 Private Declare Function GetAncestor Lib "user32" (ByVal hWnd As Long, ByVal gaFlags As Long) As Long
 Private Declare Function SendMessage Lib "user32" Alias "SendMessageW" (ByVal hWnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByRef lParam As Any) As Long
+Private Declare Function DefWindowProc Lib "user32" Alias "DefWindowProcW" (ByVal hWnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long) As Long
 Private Declare Function DestroyWindow Lib "user32" (ByVal hWnd As Long) As Long
 Private Declare Function SetParent Lib "user32" (ByVal hWndChild As Long, ByVal hWndNewParent As Long) As Long
 Private Declare Function SetFocusAPI Lib "user32" Alias "SetFocus" (ByVal hWnd As Long) As Long
@@ -121,7 +122,6 @@ Private Const WS_VISIBLE As Long = &H10000000
 Private Const WS_CHILD As Long = &H40000000
 Private Const SW_HIDE As Long = &H0
 Private Const GA_ROOT As Long = 2
-Private Const WM_MOUSEACTIVATE As Long = &H21, MA_ACTIVATE As Long = &H1, MA_ACTIVATEANDEAT As Long = &H2, MA_NOACTIVATE As Long = &H3, MA_NOACTIVATEANDEAT As Long = &H4
 Private Const WM_SETFOCUS As Long = &H7
 Private Const WM_KILLFOCUS As Long = &H8
 Private Const WM_KEYDOWN As Long = &H100
@@ -142,6 +142,7 @@ Private Const WM_MBUTTONDBLCLK As Long = &H209
 Private Const WM_RBUTTONDBLCLK As Long = &H206
 Private Const WM_MOUSEMOVE As Long = &H200
 Private Const WM_MOUSELEAVE As Long = &H2A3
+Private Const WM_NCPAINT As Long = &H85
 Private Const WM_COMMAND As Long = &H111
 Private Const WM_SETFONT As Long = &H30
 Private Const WM_ERASEBKGND As Long = &H14
@@ -162,11 +163,12 @@ Private HotKeyBackColorBrush As Long
 Private HotKeyCharCodeCache As Long
 Private HotKeyIsClick As Boolean
 Private HotKeyMouseOver As Boolean
-Private HotKeyDesignMode As Boolean, HotKeyTopDesignMode As Boolean
+Private HotKeyDesignMode As Boolean
 Private HotKeyDblClickSupported As Boolean, HotKeyIsDblClick As Boolean
 Private HotKeyDblClickTime As Long, HotKeyDblClickTickCount As Double
 Private HotKeyDblClickCX As Long, HotKeyDblClickCY As Long
 Private HotKeyDblClickX As Long, HotKeyDblClickY As Long
+Private UCNoSetFocusFwd As Boolean
 Private DispIDMousePointer As Long
 Private WithEvents PropFont As StdFont
 Attribute PropFont.VB_VarHelpID = -1
@@ -196,16 +198,12 @@ If wMsg = WM_KEYDOWN Or wMsg = WM_KEYUP Then
     End If
     Select Case KeyCode
         Case vbKeyUp, vbKeyDown, vbKeyLeft, vbKeyRight, vbKeyPageDown, vbKeyPageUp, vbKeyHome, vbKeyEnd
-            If HotKeyHandle <> 0 Then
-                SendMessage HotKeyHandle, wMsg, wParam, ByVal lParam
-                Handled = True
-            End If
+            SendMessage hWnd, wMsg, wParam, ByVal lParam
+            Handled = True
         Case vbKeyReturn, vbKeyTab, vbKeyEscape
             If IsInputKey = True Then
-                If HotKeyHandle <> 0 Then
-                    SendMessage HotKeyHandle, wMsg, wParam, ByVal lParam
-                    Handled = True
-                End If
+                SendMessage hWnd, wMsg, wParam, ByVal lParam
+                Handled = True
             End If
     End Select
 End If
@@ -248,7 +246,6 @@ Private Sub UserControl_InitProperties()
 If DispIDMousePointer = 0 Then DispIDMousePointer = GetDispID(Me, "MousePointer")
 On Error Resume Next
 HotKeyDesignMode = Not Ambient.UserMode
-HotKeyTopDesignMode = Not GetTopUserControl(Me).Ambient.UserMode
 On Error GoTo 0
 Set PropFont = Ambient.Font
 PropVisualStyles = True
@@ -263,7 +260,6 @@ Private Sub UserControl_ReadProperties(PropBag As PropertyBag)
 If DispIDMousePointer = 0 Then DispIDMousePointer = GetDispID(Me, "MousePointer")
 On Error Resume Next
 HotKeyDesignMode = Not Ambient.UserMode
-HotKeyTopDesignMode = Not GetTopUserControl(Me).Ambient.UserMode
 On Error GoTo 0
 With PropBag
 Set PropFont = .ReadProperty("Font", Nothing)
@@ -620,7 +616,7 @@ UserControl.PropertyChanged "MouseTrack"
 End Property
 
 Public Property Get BackColor() As OLE_COLOR
-Attribute BackColor.VB_Description = "Returns/sets the background color used to display text and graphics in an object. Only applicable if the enabled property is set to true. This property is ignored at design time."
+Attribute BackColor.VB_Description = "Returns/sets the background color used to display text and graphics in an object. This property is ignored at design time."
 BackColor = PropBackColor
 End Property
 
@@ -791,33 +787,6 @@ Select Case wMsg
     Case WM_IME_CHAR
         SendMessage hWnd, WM_CHAR, wParam, ByVal lParam
         Exit Function
-    Case WM_MOUSEACTIVATE
-        Static InProc As Boolean
-        If HotKeyTopDesignMode = False And GetFocus() <> HotKeyHandle Then
-            If InProc = True Then WindowProcControl = MA_ACTIVATEANDEAT: Exit Function
-            Select Case HiWord(lParam)
-                Case WM_LBUTTONDOWN
-                    On Error Resume Next
-                    With UserControl
-                    If .Extender.CausesValidation = True Then
-                        InProc = True
-                        Call ComCtlsTopParentValidateControls(Me)
-                        InProc = False
-                        If Err.Number = 380 Then
-                            WindowProcControl = MA_ACTIVATEANDEAT
-                        Else
-                            SetFocusAPI .hWnd
-                            WindowProcControl = MA_NOACTIVATE
-                        End If
-                    Else
-                        SetFocusAPI .hWnd
-                        WindowProcControl = MA_NOACTIVATE
-                    End If
-                    End With
-                    On Error GoTo 0
-                    Exit Function
-            End Select
-        End If
     Case WM_SETCURSOR
         If LoWord(lParam) = HTCLIENT Then
             If MousePointerID(PropMousePointer) <> 0 Then
@@ -833,7 +802,7 @@ Select Case wMsg
             End If
         End If
     Case WM_ERASEBKGND
-        If Me.Enabled = True And PropBackColor <> vbWindowBackground And HotKeyBackColorBrush <> 0 Then
+        If HotKeyBackColorBrush <> 0 Then
             SetBkMode wParam, 1
             Dim RC As RECT
             GetClientRect hWnd, RC
@@ -841,7 +810,17 @@ Select Case wMsg
             WindowProcControl = 1
             Exit Function
         End If
+    Case WM_NCPAINT
+        ' Bugfix for msctls_hotkey32 class as it always draws a themed border.
+        ' However, it should only draw themed when the border style is sunken. (like the edit control)
+        If PropBorderStyle <> CCBorderStyleSunken Then
+            WindowProcControl = DefWindowProc(hWnd, wMsg, wParam, lParam)
+            Exit Function
+        End If
     Case WM_LBUTTONDOWN, WM_MBUTTONDOWN, WM_RBUTTONDOWN
+        If wMsg = WM_LBUTTONDOWN Then
+            If GetFocus() <> hWnd Then UCNoSetFocusFwd = True: SetFocusAPI UserControl.hWnd: UCNoSetFocusFwd = False
+        End If
         If HotKeyDblClickSupported = False Then
             If HotKeyDblClickTickCount = 0 Then
                 HotKeyDblClickTickCount = CLngToULng(GetTickCount())
@@ -934,5 +913,5 @@ Select Case wMsg
         End If
 End Select
 WindowProcUserControl = ComCtlsDefaultProc(hWnd, wMsg, wParam, lParam)
-If wMsg = WM_SETFOCUS Then SetFocusAPI HotKeyHandle
+If wMsg = WM_SETFOCUS And UCNoSetFocusFwd = False Then SetFocusAPI HotKeyHandle
 End Function

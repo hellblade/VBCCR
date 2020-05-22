@@ -125,6 +125,7 @@ Private Declare Function MapWindowPoints Lib "user32" (ByVal hWndFrom As Long, B
 Private Declare Function TrackMouseEvent Lib "user32" (ByRef lpEventTrack As TRACKMOUSEEVENTSTRUCT) As Long
 Private Declare Function GetMessagePos Lib "user32" () As Long
 Private Declare Function WindowFromPoint Lib "user32" (ByVal X As Long, ByVal Y As Long) As Long
+Private Declare Function GetClientRect Lib "user32" (ByVal hWnd As Long, ByRef lpRect As RECT) As Long
 Private Declare Function ScreenToClient Lib "user32" (ByVal hWnd As Long, ByRef lpPoint As POINTAPI) As Long
 Private Declare Function GetTextExtentPoint32 Lib "gdi32" Alias "GetTextExtentPoint32W" (ByVal hDC As Long, ByVal lpsz As Long, ByVal cbString As Long, ByRef lpSize As SIZEAPI) As Long
 Private Declare Function ReleaseDC Lib "user32" (ByVal hWnd As Long, ByVal hDC As Long) As Long
@@ -132,6 +133,7 @@ Private Declare Function GetDC Lib "user32" (ByVal hWnd As Long) As Long
 Private Declare Function SelectObject Lib "gdi32" (ByVal hDC As Long, ByVal hObject As Long) As Long
 Private Declare Function SetWindowPos Lib "user32" (ByVal hWnd As Long, ByVal hWndInsertAfter As Long, ByVal X As Long, ByVal Y As Long, ByVal CX As Long, ByVal CY As Long, ByVal wFlags As Long) As Long
 Private Declare Function TextOut Lib "gdi32" Alias "TextOutW" (ByVal hDC As Long, ByVal X As Long, ByVal Y As Long, ByVal lpString As Long, ByVal nCount As Long) As Long
+Private Declare Function SetViewportOrgEx Lib "gdi32" (ByVal hDC As Long, ByVal X As Long, ByVal Y As Long, ByRef lpPoint As POINTAPI) As Long
 
 #If ImplementThemedBorder = True Then
 
@@ -169,6 +171,7 @@ Private Declare Function GetSystemMetrics Lib "user32" (ByVal nIndex As Long) As
 
 Private Const ICC_STANDARD_CLASSES As Long = &H4000
 Private Const RDW_UPDATENOW As Long = &H100, RDW_INVALIDATE As Long = &H1, RDW_ERASE As Long = &H4, RDW_ALLCHILDREN As Long = &H80, RDW_NOCHILDREN As Long = &H40, RDW_FRAME As Long = &H400
+Private Const HWND_DESKTOP As Long = &H0
 Private Const SWP_FRAMECHANGED As Long = &H20
 Private Const SWP_DRAWFRAME As Long = SWP_FRAMECHANGED
 Private Const SWP_NOMOVE As Long = &H2
@@ -218,7 +221,9 @@ Private Const WM_GETTEXTLENGTH As Long = &HE
 Private Const WM_GETTEXT As Long = &HD
 Private Const WM_SETTEXT As Long = &HC
 Private Const WM_PASTE As Long = &H302
+Private Const WM_PAINT As Long = &HF
 Private Const WM_NCPAINT As Long = &H85
+Private Const WM_PRINTCLIENT As Long = &H318
 Private Const WM_SETCURSOR As Long = &H20, HTCLIENT As Long = 1
 Private Const WM_USER As Long = &H400
 Private Const IPM_CLEARADDRESS As Long = (WM_USER + 100)
@@ -410,21 +415,8 @@ End With
 End Sub
 
 Private Sub UserControl_Paint()
-With UserControl
-Dim hFontOld As Long
-If IPAddressFontHandle <> 0 Then hFontOld = SelectObject(.hDC, IPAddressFontHandle)
-Dim X As Long, Y As Long, CX As Long
-X = IPAddressPadding.CX
-Y = IPAddressPadding.CY
-CX = ((UserControl.ScaleWidth - X) - (IPAddressDotSpacing * 3)) \ 4 ' Discard any remainder
-X = X + CX
-TextOut .hDC, X, Y, StrPtr("."), 1
-X = X + IPAddressDotSpacing + CX
-TextOut .hDC, X, Y, StrPtr("."), 1
-X = X + IPAddressDotSpacing + CX
-TextOut .hDC, X, Y, StrPtr("."), 1
-If hFontOld <> 0 Then SelectObject .hDC, hFontOld
-End With
+UserControl.Cls
+Call DrawDots(UserControl.hDC)
 End Sub
 
 Private Sub UserControl_Click()
@@ -1227,6 +1219,22 @@ IPAddressChangeFrozen = False
 If Not OldText = NewText Then RaiseEvent Change
 End Property
 
+Private Sub DrawDots(ByVal hDC As Long)
+Dim hFontOld As Long
+If IPAddressFontHandle <> 0 Then hFontOld = SelectObject(hDC, IPAddressFontHandle)
+Dim X As Long, Y As Long, CX As Long
+X = IPAddressPadding.CX
+Y = IPAddressPadding.CY
+CX = ((UserControl.ScaleWidth - X) - (IPAddressDotSpacing * 3)) \ 4 ' Discard any remainder
+X = X + CX
+TextOut hDC, X, Y, StrPtr("."), 1
+X = X + IPAddressDotSpacing + CX
+TextOut hDC, X, Y, StrPtr("."), 1
+X = X + IPAddressDotSpacing + CX
+TextOut hDC, X, Y, StrPtr("."), 1
+If hFontOld <> 0 Then SelectObject hDC, hFontOld
+End Sub
+
 Private Function CheckMinMaxFromWindow(ByVal hWnd As Long) As Boolean
 Dim Item As Integer
 Item = ItemFromWindow(hWnd)
@@ -1336,6 +1344,19 @@ Select Case wMsg
                 End If
             End If
         End If
+    Case WM_PRINTCLIENT
+        SendMessage hWnd, WM_PAINT, wParam, ByVal 0&
+        Call DrawDots(wParam)
+        Dim WndRect1 As RECT, P As POINTAPI, i As Long
+        For i = 1 To 4
+            GetWindowRect IPAddressEditHandle(i), WndRect1
+            MapWindowPoints HWND_DESKTOP, UserControl.hWnd, WndRect1, 2
+            SetViewportOrgEx wParam, WndRect1.Left, WndRect1.Top, P
+            SendMessage IPAddressEditHandle(i), WM_PAINT, wParam, ByVal 0&
+            SetViewportOrgEx wParam, P.X, P.Y, P
+        Next i
+        WindowProcUserControl = 0
+        Exit Function
     
     #If ImplementThemedBorder = True Then
     
@@ -1345,54 +1366,52 @@ Select Case wMsg
             If IPAddressEnabledVisualStyles = True Then SetWindowPos hWnd, 0, 0, 0, 0, 0, SWP_NOMOVE Or SWP_NOSIZE Or SWP_NOOWNERZORDER Or SWP_NOZORDER Or SWP_DRAWFRAME
         End If
     Case WM_NCPAINT
-        If PropBorderStyle = CCBorderStyleSunken And PropVisualStyles = True Then
-            If IPAddressEnabledVisualStyles = True Then
-                Dim Theme As Long
-                Theme = OpenThemeData(hWnd, StrPtr("Edit"))
-                If Theme <> 0 Then
-                    WindowProcUserControl = ComCtlsDefaultProc(hWnd, wMsg, wParam, lParam)
-                    Dim hDC As Long
-                    If wParam = 1 Then ' Alias for entire window
-                        hDC = GetWindowDC(hWnd)
-                    Else
-                        hDC = GetDCEx(hWnd, wParam, DCX_WINDOW Or DCX_INTERSECTRGN Or DCX_USESTYLE)
-                    End If
-                    If hDC <> 0 Then
-                        Dim BorderX As Long, BorderY As Long
-                        Dim RC1 As RECT, RC2 As RECT, WndRect As RECT
-                        Const SM_CXEDGE As Long = 45
-                        Const SM_CYEDGE As Long = 46
-                        BorderX = GetSystemMetrics(SM_CXEDGE)
-                        BorderY = GetSystemMetrics(SM_CYEDGE)
-                        GetWindowRect hWnd, WndRect
-                        With UserControl
-                        SetRect RC1, BorderX, BorderY, (WndRect.Right - WndRect.Left) - BorderX, (WndRect.Bottom - WndRect.Top) - BorderY
-                        SetRect RC2, 0, 0, (WndRect.Right - WndRect.Left), (WndRect.Bottom - WndRect.Top)
-                        End With
-                        ExcludeClipRect hDC, RC1.Left, RC1.Top, RC1.Right, RC1.Bottom
-                        Dim EditPart As Long, EditState As Long
-                        EditPart = EP_EDITBORDER_NOSCROLL
-                        Dim Brush As Long
-                        If Me.Enabled = False Then
-                            EditState = EPSN_DISABLED
-                            Brush = CreateSolidBrush(WinColor(vbButtonFace))
-                        Else
-                            If IPAddressEditFocusHwnd <> 0 Then
-                                EditState = EPSN_FOCUSED
-                            Else
-                                EditState = EPSN_NORMAL
-                            End If
-                            Brush = CreateSolidBrush(WinColor(Me.BackColor))
-                        End If
-                        FillRect hDC, RC2, Brush
-                        DeleteObject Brush
-                        If IsThemeBackgroundPartiallyTransparent(Theme, EditPart, EditState) <> 0 Then DrawThemeParentBackground hWnd, hDC, RC2
-                        DrawThemeBackground Theme, hDC, EditPart, EditState, RC2, RC2
-                        ReleaseDC hWnd, hDC
-                    End If
-                    CloseThemeData Theme
-                    Exit Function
+        If PropBorderStyle = CCBorderStyleSunken And PropVisualStyles = True And IPAddressEnabledVisualStyles = True Then
+            Dim Theme As Long
+            Theme = OpenThemeData(hWnd, StrPtr("Edit"))
+            If Theme <> 0 Then
+                Dim hDC As Long
+                If wParam = 1 Then ' Alias for entire window
+                    hDC = GetWindowDC(hWnd)
+                Else
+                    hDC = GetDCEx(hWnd, wParam, DCX_WINDOW Or DCX_INTERSECTRGN Or DCX_USESTYLE)
                 End If
+                If hDC <> 0 Then
+                    Dim BorderX As Long, BorderY As Long
+                    Dim RC1 As RECT, RC2 As RECT, WndRect2 As RECT
+                    Const SM_CXEDGE As Long = 45
+                    Const SM_CYEDGE As Long = 46
+                    BorderX = GetSystemMetrics(SM_CXEDGE)
+                    BorderY = GetSystemMetrics(SM_CYEDGE)
+                    GetWindowRect hWnd, WndRect2
+                    With UserControl
+                    SetRect RC1, BorderX, BorderY, (WndRect2.Right - WndRect2.Left) - BorderX, (WndRect2.Bottom - WndRect2.Top) - BorderY
+                    SetRect RC2, 0, 0, (WndRect2.Right - WndRect2.Left), (WndRect2.Bottom - WndRect2.Top)
+                    End With
+                    ExcludeClipRect hDC, RC1.Left, RC1.Top, RC1.Right, RC1.Bottom
+                    Dim EditPart As Long, EditState As Long
+                    EditPart = EP_EDITBORDER_NOSCROLL
+                    Dim Brush As Long
+                    If Me.Enabled = False Then
+                        EditState = EPSN_DISABLED
+                        Brush = CreateSolidBrush(WinColor(vbButtonFace))
+                    Else
+                        If IPAddressEditFocusHwnd <> 0 Then
+                            EditState = EPSN_FOCUSED
+                        Else
+                            EditState = EPSN_NORMAL
+                        End If
+                        Brush = CreateSolidBrush(WinColor(Me.BackColor))
+                    End If
+                    FillRect hDC, RC2, Brush
+                    DeleteObject Brush
+                    If IsThemeBackgroundPartiallyTransparent(Theme, EditPart, EditState) <> 0 Then DrawThemeParentBackground hWnd, hDC, RC2
+                    DrawThemeBackground Theme, hDC, EditPart, EditState, RC2, RC2
+                    ReleaseDC hWnd, hDC
+                End If
+                CloseThemeData Theme
+                WindowProcUserControl = 0
+                Exit Function
             End If
         End If
     

@@ -244,6 +244,8 @@ Private Const WM_RBUTTONDOWN As Long = &H204
 Private Const WM_RBUTTONUP As Long = &H205
 Private Const WM_MOUSEMOVE As Long = &H200
 Private Const WM_MOUSELEAVE As Long = &H2A3
+Private Const WM_DESTROY As Long = &H2
+Private Const WM_NCDESTROY As Long = &H82
 Private Const WM_SETFONT As Long = &H30
 Private Const WM_ERASEBKGND As Long = &H14
 Private Const WM_SETCURSOR As Long = &H20, HTCLIENT As Long = 1
@@ -319,12 +321,12 @@ Private Const TCHT_ONITEMICON As Long = &H2
 Private Const TCHT_ONITEMLABEL As Long = &H4
 Private Const TCHT_ONITEM As Long = (TCHT_ONITEMICON Or TCHT_ONITEMLABEL)
 Private Const MAX_PATH As Long = 260
-Private Const H_MAX As Long = (&HFFFF + 1)
-Private Const TCN_FIRST As Long = (H_MAX - 550)
+Private Const TCN_FIRST As Long = (-550)
 Private Const TCN_SELCHANGE As Long = (TCN_FIRST - 1)
 Private Const TCN_SELCHANGING As Long = (TCN_FIRST - 2)
 Private Const TCN_GETOBJECT As Long = (TCN_FIRST - 3)
 Private Const TCN_FOCUSCHANGE As Long = (TCN_FIRST - 4)
+Private Const TTF_RTLREADING As Long = &H4
 Private Const TTN_FIRST As Long = (-520)
 Private Const TTN_GETDISPINFOA As Long = (TTN_FIRST - 0)
 Private Const TTN_GETDISPINFOW As Long = (TTN_FIRST - 10)
@@ -402,16 +404,12 @@ If wMsg = WM_KEYDOWN Or wMsg = WM_KEYUP Then
     End If
     Select Case KeyCode
         Case vbKeyUp, vbKeyDown, vbKeyLeft, vbKeyRight, vbKeyPageDown, vbKeyPageUp, vbKeyHome, vbKeyEnd
-            If TabStripHandle <> 0 Then
-                SendMessage TabStripHandle, wMsg, wParam, ByVal lParam
-                Handled = True
-            End If
+            SendMessage hWnd, wMsg, wParam, ByVal lParam
+            Handled = True
         Case vbKeyTab, vbKeyReturn, vbKeyEscape
             If IsInputKey = True Then
-                If TabStripHandle <> 0 Then
-                    SendMessage TabStripHandle, wMsg, wParam, ByVal lParam
-                    Handled = True
-                End If
+                SendMessage hWnd, wMsg, wParam, ByVal lParam
+                Handled = True
             End If
     End Select
 End If
@@ -1077,16 +1075,27 @@ UserControl.PropertyChanged "RightToLeftMode"
 End Property
 
 Public Property Get BackColor() As OLE_COLOR
-Attribute BackColor.VB_Description = "Returns/sets the background color used to display text and graphics in an object. This property is ignored at design time."
+Attribute BackColor.VB_Description = "Returns/sets the background color used to display text and graphics in an object."
 Attribute BackColor.VB_UserMemId = -501
 BackColor = PropBackColor
 End Property
 
 Public Property Let BackColor(ByVal Value As OLE_COLOR)
+If TabStripDesignMode = True Then
+    If TabStripHandle <> 0 Then
+        If Value = vbButtonFace And PropBackColor <> vbButtonFace Then
+            Call ComCtlsRemoveSubclass(TabStripHandle)
+            Call ComCtlsRemoveSubclass(UserControl.hWnd)
+        ElseIf Value <> vbButtonFace And PropBackColor = vbButtonFace Then
+            Call ComCtlsSetSubclass(TabStripHandle, Me, 3)
+            Call ComCtlsSetSubclass(UserControl.hWnd, Me, 4)
+        End If
+    End If
+End If
 PropBackColor = Value
-If TabStripHandle <> 0 And TabStripDesignMode = False Then
+If TabStripHandle <> 0 Then
     If TabStripBackColorBrush <> 0 Then DeleteObject TabStripBackColorBrush
-    TabStripBackColorBrush = CreateSolidBrush(WinColor(PropBackColor))
+    If TabStripDesignMode = False Or PropBackColor <> vbButtonFace Then TabStripBackColorBrush = CreateSolidBrush(WinColor(PropBackColor))
 End If
 Me.Refresh
 UserControl.PropertyChanged "BackColor"
@@ -1748,6 +1757,12 @@ If TabStripDesignMode = False Then
         Call ComCtlsSetSubclass(TabStripHandle, Me, 1)
         TabStripStyleCache = dwStyle
     End If
+ElseIf PropBackColor <> vbButtonFace Then
+    If TabStripHandle <> 0 Then
+        If TabStripBackColorBrush = 0 Then TabStripBackColorBrush = CreateSolidBrush(WinColor(PropBackColor))
+        Call ComCtlsSetSubclass(TabStripHandle, Me, 3)
+        Call ComCtlsSetSubclass(UserControl.hWnd, Me, 4)
+    End If
 End If
 End Sub
 
@@ -1979,6 +1994,10 @@ Select Case dwRefData
         ISubclass_Message = WindowProcControl(hWnd, wMsg, wParam, lParam)
     Case 2
         ISubclass_Message = WindowProcUserControl(hWnd, wMsg, wParam, lParam)
+    Case 3
+        ISubclass_Message = WindowProcControlDesignMode(hWnd, wMsg, wParam, lParam)
+    Case 4
+        ISubclass_Message = WindowProcUserControlDesignMode(hWnd, wMsg, wParam, lParam)
 End Select
 End Function
 
@@ -2226,10 +2245,15 @@ Select Case wMsg
                     Dim NMTTDI As NMTTDISPINFO
                     CopyMemory NMTTDI, ByVal lParam, LenB(NMTTDI)
                     With NMTTDI
+                    If PropRightToLeft = True And PropRightToLeftLayout = False Then
+                        If Not (.uFlags And TTF_RTLREADING) = TTF_RTLREADING Then
+                            .uFlags = .uFlags Or TTF_RTLREADING
+                            CopyMemory ByVal lParam, NMTTDI, LenB(NMTTDI)
+                        End If
+                    End If
                     Dim Text As String
                     Text = Me.Tabs(.hdr.IDFrom + 1).ToolTipText
                     If Not Text = vbNullString Then
-                        If PropRightToLeft = True And PropRightToLeftLayout = False Then Text = ChrW(&H202B) & Text ' Right-to-left Embedding (RLE)
                         If Len(Text) <= 80 Then
                             Text = Left$(Text & vbNullChar, 80)
                             CopyMemory .szText(0), ByVal StrPtr(Text), LenB(Text)
@@ -2272,4 +2296,30 @@ Select Case wMsg
 End Select
 WindowProcUserControl = ComCtlsDefaultProc(hWnd, wMsg, wParam, lParam)
 If wMsg = WM_SETFOCUS And UCNoSetFocusFwd = False Then SetFocusAPI TabStripHandle
+End Function
+
+Private Function WindowProcControlDesignMode(ByVal hWnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long) As Long
+Select Case wMsg
+    Case WM_ERASEBKGND
+        WindowProcControlDesignMode = WindowProcControl(hWnd, wMsg, wParam, lParam)
+        Exit Function
+End Select
+WindowProcControlDesignMode = ComCtlsDefaultProc(hWnd, wMsg, wParam, lParam)
+Select Case wMsg
+    Case WM_DESTROY, WM_NCDESTROY
+        Call ComCtlsRemoveSubclass(hWnd)
+End Select
+End Function
+
+Private Function WindowProcUserControlDesignMode(ByVal hWnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long) As Long
+Select Case wMsg
+    Case WM_PRINTCLIENT
+        WindowProcUserControlDesignMode = WindowProcUserControl(hWnd, wMsg, wParam, lParam)
+        Exit Function
+End Select
+WindowProcUserControlDesignMode = ComCtlsDefaultProc(hWnd, wMsg, wParam, lParam)
+Select Case wMsg
+    Case WM_DESTROY, WM_NCDESTROY
+        Call ComCtlsRemoveSubclass(hWnd)
+End Select
 End Function
