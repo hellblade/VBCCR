@@ -263,6 +263,7 @@ Private PropSelStart As Long, PropSelLength As Long
 Private PropTransparent As Boolean
 Private PropHideThumb As Boolean
 Private PropReversed As Boolean
+Private Rebuilding As Boolean
 
 Private Sub IObjectSafety_GetInterfaceSafetyOptions(ByRef riid As OLEGuids.OLECLSID, ByRef pdwSupportedOptions As Long, ByRef pdwEnabledOptions As Long)
 Const INTERFACESAFE_FOR_UNTRUSTED_CALLER As Long = &H1, INTERFACESAFE_FOR_UNTRUSTED_DATA As Long = &H2
@@ -898,7 +899,7 @@ Changed = CBool(Me.Value <> NewValue)
 PropValue = NewValue
 If SliderHandle <> 0 Then SendMessage SliderHandle, TBM_SETPOS, 1, ByVal PropValue
 UserControl.PropertyChanged "Value"
-If Changed = True Then
+If Changed = True And Not Rebuilding Then
     On Error Resume Next
     UserControl.Extender.DataChanged = True
     On Error GoTo 0
@@ -1335,6 +1336,7 @@ End If
 End Sub
 
 Private Sub ReCreateSlider()
+Rebuilding = True
 If SliderDesignMode = False Then
     Dim Locked As Boolean
     Locked = CBool(LockWindowUpdate(UserControl.hWnd) <> 0)
@@ -1348,6 +1350,7 @@ Else
     Call CreateSlider
     Call UserControl_Resize
 End If
+Rebuilding = False
 End Sub
 
 Private Sub DestroySlider()
@@ -1660,7 +1663,7 @@ Select Case wMsg
                 Case TB_THUMBTRACK, TB_THUMBPOSITION
                     If RetVal <> PropValue Then
                         PropValue = RetVal
-                        RaiseEvent Scroll
+                        If Not Rebuilding Then RaiseEvent Scroll
                     End If
                 Case TB_ENDTRACK
                     PropValue = RetVal
@@ -1668,7 +1671,7 @@ Select Case wMsg
                     On Error Resume Next
                     UserControl.Extender.DataChanged = True
                     On Error GoTo 0
-                    RaiseEvent Change
+                    If Not Rebuilding Then RaiseEvent Change
             End Select
         End If
     Case WM_CTLCOLORSTATIC
