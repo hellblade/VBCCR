@@ -3346,6 +3346,12 @@ Select Case wMsg
                                         NMTVCD.ClrTextBk = WinColor(.BackColor)
                                         CopyMemory ByVal lParam, NMTVCD, LenB(NMTVCD)
                                     End If
+                                ElseIf ((NMTVCD.NMCD.uItemState And CDIS_FOCUS) = CDIS_FOCUS Or (NMTVCD.NMCD.uItemState And CDIS_SELECTED) = CDIS_SELECTED) And (NMTVCD.NMCD.uItemState And CDIS_DISABLED) = 0 Then
+                                    If SendMessage(TreeViewHandle, TVM_GETNEXTITEM, TVGN_DROPHILITE, ByVal 0&) <> NMTVCD.NMCD.dwItemSpec Then
+                                        NMTVCD.ClrText = WinColor(.BackColor)
+                                        NMTVCD.ClrTextBk = WinColor(.ForeColor)
+                                        CopyMemory ByVal lParam, NMTVCD, LenB(NMTVCD)
+                                    End If
                                 End If
                                 If .NoImages = False Then
                                     WindowProcUserControl = CDRF_DODEFAULT
